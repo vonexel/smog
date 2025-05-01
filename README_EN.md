@@ -13,7 +13,17 @@ This implementation:
 - support for multi-scenario motion generation (e.g., dances, sports, daily activities) from free-form text prompts,
 - supports both CPU and GPU inference (though GPU is way faster).
 
+
+## Results:
+
+![Taekwondo](visuals/gen_0_0.gif)
+
+
+![Crouch](visuals/gen_0_2.gif)
+
+
 ## Updates
+**01/MAY/25** - Fix of GPU-support.
 **27/MARCH/25** - First release.
 
 ## Project structure
