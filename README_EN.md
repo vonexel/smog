@@ -24,6 +24,8 @@ This implementation:
 
 ## Updates
 **01/MAY/25** - Fix of GPU-support.
+
+
 **27/MARCH/25** - First release.
 
 ## Project structure
