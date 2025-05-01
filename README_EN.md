@@ -16,14 +16,11 @@ This implementation:
 
 ## Results:
 
-![Taekwondo](visuals/gen_0_0.gif)
-
-
-![Crouch](visuals/gen_0_2.gif)
+![Generated Motion](visuals/gen_result.gif)
 
 
 ## Updates
-**01/MAY/25** - Fix of GPU-support.
+**01/MAY/25** - Fix of GPU-support, fix of visualization issue.
 
 
 **27/MARCH/25** - First release.
