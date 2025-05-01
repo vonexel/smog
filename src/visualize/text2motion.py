@@ -16,8 +16,11 @@ plt.switch_backend('agg')
 def main():
     # parse options
     parameters, folder, checkpointname, epoch = parser()
-    gpu_device = get_gpu_device()
-    parameters["device"] = f"cuda:{gpu_device}"
+    #Enable gpu-support
+    #gpu_device = get_gpu_device()
+    #parameters["device"] = f"cuda:{gpu_device}"
+    #CPU
+    parameters["device"] = "cpu"
     model, datasets = get_model_and_data(parameters, split='vald')
 
     print("Restore weights..")
@@ -38,3 +41,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+

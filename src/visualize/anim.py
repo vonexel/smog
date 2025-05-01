@@ -111,8 +111,8 @@ def plot_3d_motion(motion, length, save_path, params, title="", interval=50, pal
         motion = motion.numpy()
 
     # # invert axis
-    # motion[:, 1, :] = -motion[:, 1, :]
-    # motion[:, 2, :] = -motion[:, 2, :]
+    motion[:, 1, :] = -motion[:, 1, :]
+    motion[:, 2, :] = -motion[:, 2, :]
     # this hack is not needed for amass
 
     """
