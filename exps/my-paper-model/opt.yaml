@@ -1,6 +1,6 @@
 activation: gelu
 archiname: transformer
-batch_size: 64
+batch_size: 16
 clip_image_losses:
 - cosine
 clip_lambda_ce: 1.0
@@ -41,14 +41,14 @@ losses:
 - rc
 - rcxyz
 - vel
-lr: 0.01
+lr: 0.0001
 max_len: -1
 min_len: -1
 modelname: motionclip_transformer_rc_rcxyz_vel
 modeltype: motionclip
-num_epochs: 2
-num_frames: 30
-num_layers: 4
+num_epochs: 30
+num_frames: 60
+num_layers: 8
 num_seq_max: -1
 only_60_classes: false
 pose_rep: rot6d
