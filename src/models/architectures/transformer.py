@@ -2,207 +2,295 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .kan import *
+from .kan import KANLayer
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+        """
+        Standard positional encoding with Sin/Cos functions + LayerNorm to preserve 
+        temporal relationships between frames throughtout sequence-modeling.
+        """
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
+        self.d_model = d_model
 
+        # Precompute positional encodings (PE) using sinusoidal functions
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        
-        self.register_buffer('pe', pe)
+        pe = pe.unsqueeze(1)  # (max_len, 1, d_model)
+        self.register_buffer("pe", pe)
+        self.norm_pe = nn.LayerNorm(d_model)
 
-    def forward(self, x):
-        # not used in the final model
-        x = x + self.pe[:x.shape[0], :]
-        return self.dropout(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Input tensor of shape (seq_len, batch_size, d_model)
+        Returns:
+            Tensor with positional encodings added and normalized
+        """
+        seq_len = x.size(0)
+        x2 = x + self.pe[:seq_len, :]  # Add positional encodings
+        x2 = self.norm_pe(x2)          # Normalize
+        return self.dropout(x2)
 
-
-# only for ablation / not used in the final model
-class TimeEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(TimeEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-    def forward(self, x, mask, lengths):
-        time = mask * 1/(lengths[..., None]-1)
-        time = time[:, None] * torch.arange(time.shape[1], device=x.device)[None, :]
-        time = time[:, 0].T
-        # add the time encoding
-        x = x + time[..., None]
-        return self.dropout(x)
-    
 
 class Encoder_TRANSFORMER(nn.Module):
-    def __init__(self, modeltype, njoints, nfeats, num_frames, num_classes, translation, pose_rep, glob, glob_rot,
-                 latent_dim=256, ff_size=1024, num_layers=4, num_heads=4, dropout=0.1,
-                 ablation=None, activation="gelu", **kargs):
+    """
+    Encoder module using Transformer architecture with KAN layers.
+    Key components:
+    - KANLayer which eplaces linear projections with learnable 1D splines;
+    - Transformer Encoder processing temporal dependencies.
+        """
+    def __init__(
+        self,
+        modeltype,
+        njoints: int,
+        nfeats: int,
+        num_frames: int,
+        num_classes: int,
+        translation,
+        pose_rep,
+        glob,
+        glob_rot,
+        latent_dim: int = 256,              
+        ff_size: int = 1024,                
+        num_layers: int = 4,                
+        num_heads: int = 4,                 
+        dropout: float = 0.1,
+        activation: str = "gelu",
+        **kargs
+    ):
         super().__init__()
-        
-        self.modeltype = modeltype
         self.njoints = njoints
         self.nfeats = nfeats
         self.num_frames = num_frames
         self.num_classes = num_classes
-        
         self.pose_rep = pose_rep
         self.glob = glob
         self.glob_rot = glob_rot
         self.translation = translation
-        
-        self.latent_dim = latent_dim
-        
-        self.ff_size = ff_size
-        self.num_layers = num_layers
-        self.num_heads = num_heads
+
+        self.latent_dim = latent_dim                            # Latent space dimensionality
+        self.ff_size = ff_size                                  # Feedforward network size
+        self.num_layers = num_layers                            # Transformer layers
+        self.num_heads = num_heads                              # Multi-head attention heads
         self.dropout = dropout
-
-        self.ablation = ablation
         self.activation = activation
-        
-        self.input_feats = self.njoints*self.nfeats
 
+        self.input_feats = self.njoints * self.nfeats           # Input feature dimension
+
+        # Learnable parameters for μ and σ (variational posterior)
         self.muQuery = nn.Parameter(torch.randn(1, self.latent_dim))
         self.sigmaQuery = nn.Parameter(torch.randn(1, self.latent_dim))
+
+        # KANLayer for skeleton embedding:
+        # Input: njoints * nfeats (flattened joint features)
+        # Output: latent_dim (compressed representation)
+        # KANLayer replaces linear projections with a matrix of 1D B-splines
         self.skelEmbedding = KANLayer(self.input_feats, self.latent_dim)
 
+        # Positional Encoding for temporal alignment
         self.sequence_pos_encoder = PositionalEncoding(self.latent_dim, self.dropout)
 
-        seqTransEncoderLayer = nn.TransformerEncoderLayer(d_model=self.latent_dim,
-                                                          nhead=self.num_heads,
-                                                          dim_feedforward=self.ff_size,
-                                                          dropout=self.dropout,
-                                                          activation=self.activation)
-        self.seqTransEncoder = nn.TransformerEncoder(seqTransEncoderLayer,
-                                                     num_layers=self.num_layers)
+        # Transformer Encoder with multi-head attention
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=self.latent_dim,
+            nhead=self.num_heads,
+            dim_feedforward=self.ff_size,
+            dropout=self.dropout,
+            activation=self.activation
+        )
+        self.seqTransEncoder = nn.TransformerEncoder(encoder_layer, num_layers=self.num_layers)
+        self.encoder_norm = nn.LayerNorm(self.latent_dim)  # Final normalization
 
-    def forward(self, batch):
+    def forward(self, batch: dict) -> dict:
+        """
+        batch["x"]: (batch, njoints, nfeats, nframes)
+        batch["y"]: (batch,)  — classes (if none, then == 0)
+        batch["mask"]: (batch, nframes) — bool-mask of actual frames
+        """
         x, y, mask = batch["x"], batch["y"], batch["mask"]
-        bs, njoints, nfeats, nframes = x.shape
-        x = x.permute((3, 0, 1, 2)).reshape(nframes, bs, njoints * nfeats)
+        bs, nj, nf, nf2 = x.shape  # nf2 = nframes
+        assert nf2 == self.num_frames, "Frame dimension mismatch"
 
-        # embedding of the skeleton
-        x = self.skelEmbedding(x)
+        # Reshape input: (nframes, batch, njoints*nfeats)
+        x_seq = x.permute(3, 0, 1, 2).reshape(self.num_frames, bs, self.input_feats)
 
-        # Blank Y to 0's , no classes in our model, only learned token
-        y = y - y
-        xseq = torch.cat((self.muQuery[y][None], self.sigmaQuery[y][None], x), axis=0)
+        # Applies learnable 1D splines to input features
+        x_emb = self.skelEmbedding(x_seq)  # (nframes, batch, latent_dim)
 
-        # add positional encoding
-        xseq = self.sequence_pos_encoder(xseq)
+        # Handle class labels (y)
+        if y is None:
+            y = torch.zeros(bs, dtype=torch.long, device=x.device)
+        else:
+            y = y.clamp(0, self.num_classes - 1)
 
-        # create a bigger mask, to allow attend to mu and sigma
-        muandsigmaMask = torch.ones((bs, 2), dtype=bool, device=x.device)
+        # Initialize mu and sigma queries:
+        mu_init = self.muQuery.expand(bs, -1)       # (batch, latent_dim)
+        sigma_init = self.sigmaQuery.expand(bs, -1) # (batch, latent_dim)
 
-        maskseq = torch.cat((muandsigmaMask, mask), axis=1)
+        # Concatenate [mu, sigma, x_emb] for Transformer input
+        mu_init = mu_init.unsqueeze(0)       # (1, batch, latent_dim)
+        sigma_init = sigma_init.unsqueeze(0) # (1, batch, latent_dim)
+        xcat = torch.cat((mu_init, sigma_init, x_emb), dim=0)  # (2 + nframes, batch, latent_dim)
 
-        final = self.seqTransEncoder(xseq, src_key_padding_mask=~maskseq)
-        mu = final[0]
-        logvar = final[1]
+        # Update mask for mu/sigma
+        mu_sigma_mask = torch.ones((bs, 2), dtype=torch.bool, device=x.device)
+        mask_seq = torch.cat((mu_sigma_mask, mask), dim=1)  # (batch, 2 + nframes)
 
-        return {"mu": mu}
+        # Add positional encodings
+        xcat_pe = self.sequence_pos_encoder(xcat)  # (2 + nframes, batch, latent_dim)
+
+        # Transformer Encoder
+        encoded = self.seqTransEncoder(
+            xcat_pe,
+            src_key_padding_mask=~mask_seq  # True = mask padding
+        )  # (2 + nframes, batch, latent_dim)
+
+        # Final normalization
+        encoded = self.encoder_norm(encoded)
+
+        # Extract mu and logvar (logvar stors in encoded)
+        mu = encoded[0]      # (batch, latent_dim)
+        logvar = encoded[1]  # (batch, latent_dim)
+
+        # Reparameterization
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        z = mu + eps * std  # (batch, latent_dim)
+
+        return {"mu": mu, "logvar": logvar, "z": z}
 
 
 class Decoder_TRANSFORMER(nn.Module):
-    def __init__(self, modeltype, njoints, nfeats, num_frames, num_classes, translation, pose_rep, glob, glob_rot,
-                 latent_dim=256, ff_size=1024, num_layers=4, num_heads=4, dropout=0.1, activation="gelu",
-                 ablation=None, **kargs):
+    """
+    Decoder module using Transformer architecture with KAN-layer:
+    - KANLayer: Final projection layer for skeleton reconstruction
+    - Transformer Decoder: Autoregressive generation of sequences
+    """
+    def __init__(
+        self,
+        modeltype,
+        njoints: int,
+        nfeats: int,
+        num_frames: int,
+        num_classes: int,
+        translation,
+        pose_rep,
+        glob,
+        glob_rot,
+        latent_dim: int = 256,
+        ff_size: int = 1024,
+        num_layers: int = 4,
+        num_heads: int = 4,
+        dropout: float = 0.1,
+        activation: str = "gelu",
+        **kargs
+    ):
         super().__init__()
 
-        self.modeltype = modeltype
         self.njoints = njoints
         self.nfeats = nfeats
         self.num_frames = num_frames
         self.num_classes = num_classes
-        
         self.pose_rep = pose_rep
         self.glob = glob
         self.glob_rot = glob_rot
         self.translation = translation
-        
+
         self.latent_dim = latent_dim
-        
         self.ff_size = ff_size
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.dropout = dropout
-
-        self.ablation = ablation
-
         self.activation = activation
-                
-        self.input_feats = self.njoints*self.nfeats
 
-        # only for ablation / not used in the final model
-        if self.ablation == "zandtime":
-            self.ztimelinear = nn.Linear(self.latent_dim + self.num_classes, self.latent_dim)
+        self.input_feats = self.njoints * self.nfeats
 
+        # Bias parameters for action-specific generation
         self.actionBiases = nn.Parameter(torch.randn(1, self.latent_dim))
 
-        # only for ablation / not used in the final model
-        if self.ablation == "time_encoding":
-            self.sequence_pos_encoder = TimeEncoding(self.dropout)
-        else:
-            self.sequence_pos_encoder = PositionalEncoding(self.latent_dim, self.dropout)
-        
-        seqTransDecoderLayer = nn.TransformerDecoderLayer(d_model=self.latent_dim,
-                                                          nhead=self.num_heads,
-                                                          dim_feedforward=self.ff_size,
-                                                          dropout=self.dropout,
-                                                          activation=activation)
-        self.seqTransDecoder = nn.TransformerDecoder(seqTransDecoderLayer,
-                                                     num_layers=self.num_layers)
-        
+        # Positional Encoding for temporal queries
+        self.sequence_pos_encoder = PositionalEncoding(self.latent_dim, self.dropout)
+
+        # Transformer Decoder
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=self.latent_dim,
+            nhead=self.num_heads,
+            dim_feedforward=self.ff_size,
+            dropout=self.dropout,
+            activation=self.activation
+        )
+        self.seqTransDecoder = nn.TransformerDecoder(decoder_layer, num_layers=self.num_layers)
+        self.decoder_norm = nn.LayerNorm(self.latent_dim)  # Final normalization
+
+        # Final KANLayer for skeleton reconstruction:
+        # Input: latent_dim
+        # Output: input_feats (reconstructed joint features)
         self.finallayer = KANLayer(self.latent_dim, self.input_feats)
-        
-    def forward(self, batch, use_text_emb=False):
-        z, y, mask, lengths = batch["z"], batch["y"], batch["mask"], batch["lengths"]
-        if use_text_emb:
-            z = batch["clip_text_emb"]
-        latent_dim = z.shape[1]
+
+    def forward(self, batch: dict, use_text_emb: bool = False) -> dict:
+        """
+        Forward pass for the decoder.
+        Args:
+            batch: Dictionary containing latent codes and metadata
+            use_text_emb: Whether to use text embeddings instead of latent codes
+        Returns:
+            Dictionary with generated output
+        """
+        z = batch["z"]  # Latent code: (batch, latent_dim)
+        y = batch["y"]
+        mask = batch["mask"]  # (batch, nframes)
+        lengths = batch.get("lengths", None)
         bs, nframes = mask.shape
-        njoints, nfeats = self.njoints, self.nfeats
+        nj, nf = self.njoints, self.nfeats
 
-        # only for ablation / not used in the final model
-        if self.ablation == "zandtime":
-            yoh = F.one_hot(y, self.num_classes)
-            z = torch.cat((z, yoh), axis=1)
-            z = self.ztimelinear(z)
-            z = z[None]  # sequence of size 1
-        else:
-            # only for ablation / not used in the final model
-            if self.ablation == "concat_bias":
-                # sequence of size 2
-                z = torch.stack((z, self.actionBiases[y]), axis=0)
-            else:
-                z = z[None]  # sequence of size 1  #
+        # Use text embeddings if specified
+        if use_text_emb:
+            z = batch["clip_text_emb"]  # (batch, latent_dim)
 
-        timequeries = torch.zeros(nframes, bs, latent_dim, device=z.device)
-        
-        # only for ablation / not used in the final model
-        if self.ablation == "time_encoding":
-            timequeries = self.sequence_pos_encoder(timequeries, mask, lengths)
-        else:
-            timequeries = self.sequence_pos_encoder(timequeries)
-        
-        output = self.seqTransDecoder(tgt=timequeries, memory=z,
-                                      tgt_key_padding_mask=~mask)
-        
-        output = self.finallayer(output).reshape(nframes, bs, njoints, nfeats)
-        
-        # zero for padded area
-        output[~mask.T] = 0
-        output = output.permute(1, 2, 3, 0)
+        # Normalize latent code
+        z = F.layer_norm(z, (self.latent_dim,))  # (batch, latent_dim)
+        z = z.unsqueeze(0)  # (1, batch, latent_dim) — memory for decoder
+
+        # Generate time queries: (nframes, batch, latent_dim)
+        timequeries = torch.zeros(nframes, bs, self.latent_dim, device=z.device)
+
+        # Add positional encodings
+        timequeries_pe = self.sequence_pos_encoder(timequeries)
+
+        # Ensure mask is boolean
+        if mask.dtype != torch.bool:
+            mask = mask.bool()
+
+        # Transformer Decoder
+        dec_out = self.seqTransDecoder(
+            tgt=timequeries_pe,
+            memory=z,
+            tgt_key_padding_mask=~mask  
+        )  # (nframes, batch, latent_dim)
+
+        # Final normalization of the output of decoder
+        dec_out = self.decoder_norm(dec_out)  # (nframes, batch, latent_dim)
+
+        # Transforming decoder output via KANLayer into skeletal features (reconstruct)
+        skel_feats = self.finallayer(dec_out)  # (nframes, batch, input_feats)
+        skel_feats = skel_feats.view(nframes, bs, nj, nf)  # (nframes, batch, njoints, nfeats) --> Reshape to joints
+
+        # Apply mask to zero out padding
+        mask_t = mask.T  # (nframes, batch)
+        skel_feats[~mask_t] = 0.0
+
+        # Final output format: (batch, njoints, nfeats, nframes)
+        output = skel_feats.permute(1, 2, 3, 0).contiguous()
 
         if use_text_emb:
             batch["txt_output"] = output
         else:
             batch["output"] = output
+
         return batch
