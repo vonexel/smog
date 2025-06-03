@@ -39,18 +39,9 @@ def add_shadow(img, shadow=15):
     img[~mask] = 0
     return img
 
-from PIL import Image
 
 def load_anim(path, timesize=None):
-    frames = []
-    with Image.open(path) as img:
-        while True:
-            frames.append(np.array(img.convert("RGB")))
-            try:
-                img.seek(img.tell() + 1)
-            except EOFError:
-                break
-    data = np.stack(frames)    
+    data = np.array(imageio.mimread(path, memtest=False))[..., :3]
     if timesize is None:
         return data
     # take the last frame and put shadow repeat the last frame but with a little shadow
@@ -111,8 +102,8 @@ def plot_3d_motion(motion, length, save_path, params, title="", interval=50, pal
         motion = motion.numpy()
 
     # # invert axis
-    #motion[:, 1, :] = -motion[:, 1, :]
-    #motion[:, 2, :] = -motion[:, 2, :]
+    motion[:, 1, :] = -motion[:, 1, :]
+    motion[:, 2, :] = -motion[:, 2, :]
     # this hack is not needed for amass
 
     """
@@ -152,9 +143,8 @@ def plot_3d_motion(motion, length, save_path, params, title="", interval=50, pal
 
     plt.tight_layout()
     # pillow have problem droping frames
-    #ani.save(save_path, writer='ffmpeg', fps=1000/interval)
-    #ani.save(save_path, writer='avconv', fps=1000/interval)
-    print(save_path)
+    # ani.save(save_path, writer='ffmpeg', fps=1000/interval)
+    # ani.save(save_path, writer='avconv', fps=1000/interval)
     ani.save(save_path, writer='pillow', fps=1000/interval)
     plt.close()
 

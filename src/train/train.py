@@ -13,12 +13,13 @@ import src.utils.fixseed  # noqa
 from src.parser.training import parser
 from src.utils.get_model_and_data import get_model_and_data
 
+from lion_pytorch import Lion
+
 
 def do_epochs(model, datasets, parameters, optimizer, writer):
     dataset = datasets["train"]
     train_iterator = DataLoader(dataset, batch_size=parameters["batch_size"],
-                                shuffle=True, num_workers=8, prefetch_factor=2,
-                                pin_memory=True, collate_fn=collate)
+                                shuffle=True, num_workers=8, collate_fn=collate)
 
     logpath = os.path.join(parameters["folder"], "training.log")
     with open(logpath, "w") as logfile:
@@ -57,7 +58,9 @@ if __name__ == '__main__':
 
     model, datasets = get_model_and_data(parameters)
 
+    # optimizer: AdamW or Lion
     optimizer = torch.optim.AdamW(model.parameters(), lr=parameters["lr"])
+    # optimizer = Lion(model.parameters(), lr=parameters["lr"])
 
     print('Total params: %.2fM' % (sum(p.numel() for p in model.parameters()) / 1000000.0))
     print("Training model..")

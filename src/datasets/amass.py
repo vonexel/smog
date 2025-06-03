@@ -61,7 +61,7 @@
 #         return self.get_single_item(index)
 #
 #     def load_db(self):
-#         db_file = osp.join(VIBE_DB_DIR, 'amass_30fps_train.pt')
+#         db_file = osp.join(VIBE_DB_DIR, 'amass_db.pt')
 #         db = joblib.load(db_file)
 #         return db
 #
@@ -79,7 +79,6 @@
 #         return target
 
 import os
-import os.path as osp
 import numpy as np
 import joblib
 from .dataset import Dataset
@@ -138,13 +137,10 @@ class AMASS(Dataset):
     dataname = "amass"
 
     def __init__(self, datapath="data/amass/amass_30fps_legacy_db.pt", split="train", use_z=1, **kwargs):
-        # assert '_db.pt' in datapath
-        # self.datapath = datapath.replace('_db.pt', '_{}.pt'.format(split))
-        # assert os.path.exists(self.datapath)
-        # print('datapath used by amass is [{}]'.format(self.datapath))
-        self.datapath = osp.join(datapath,
-                                 f'amass_30fps_{split}.pt')
-        assert os.path.exists(self.datapath), f"Файл {self.datapath} не обнаружен:("
+        assert '_db.pt' in datapath
+        self.datapath = datapath.replace('_db.pt', '_{}.pt'.format(split))
+        assert os.path.exists(self.datapath)
+        print('datapath used by amass is [{}]'.format(self.datapath))
         super().__init__(**kwargs)
 
         self.dataname = "amass"
@@ -180,8 +176,6 @@ class AMASS(Dataset):
         self.clip_label_text = "text_raw_labels"  # "text_proc_labels"
 
         seq_len = 100
-        # hardcoded value is too much for my GPU :)))
-        # seq_len = kwargs.get('num_frames', 100)
         n_sequences = len(self.db['thetas'])
         # split sequences
         for seq_idx in range(n_sequences):

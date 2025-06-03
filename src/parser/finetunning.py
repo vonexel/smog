@@ -9,7 +9,7 @@ def parser():
     group = parser.add_argument_group('Finetunning options (what should change)')
     group.add_argument("--num_epochs", type=int, help="new number of epochs of training")
     group.add_argument("--batch_size", type=int, help="size of the batches")
-    group.add_argument("--lr", type=float, help="AdamW: learning rate")
+    group.add_argument("--lr", type=float, help="AdamW or Lion: learning rate")
     group.add_argument("--snapshot", type=int, help="frequency of saving model/viz")
     group.add_argument("--num_frames", default=-2, type=int, help="number of frames or -1 => whole, -2 => random between min_len and total")
     group.add_argument("--min_len", default=60, type=int, help="number of frames minimum per sequence or -1")

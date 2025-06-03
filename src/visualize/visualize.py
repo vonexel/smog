@@ -111,7 +111,6 @@ def generate_by_video(visualization, reconstructions, generation,
             for _ in pool.imap_unordered(plot_3d_motion_dico, iterator):
                 pbar.update()
         if isij:
-            print('o')
             array = np.stack([[load_anim(save_path_format.format(i, j), timesize)
                                for j in range(nats)]
                               for i in tqdm(range(nspa), desc=desc.format("Load"))])
@@ -267,12 +266,7 @@ def viz_clip_text(model, text_grid, epoch, params, folder):
             generation[key] = val.reshape(h, w)
         else:
             generation[key] = val.reshape(h, w, *val.shape[1:])
-    if generation['output_xyz'].is_cuda:
-        generation['output_xyz'] = generation['output_xyz'].cpu()
-    # y축 값 반전
-    generation['output_xyz'][:, :, :, 1] *= -1
-    # 반전 후 다시 GPU로 이동 (필요 시)
-    generation['output_xyz'] = generation['output_xyz'].to(params['device'])
+
     f_name = params['input_file']
     if os.path.isfile(params['input_file']):
         f_name = os.path.basename(params['input_file'].replace('.txt', ''))

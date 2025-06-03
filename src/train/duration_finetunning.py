@@ -9,6 +9,7 @@ import src.utils.fixseed  # noqa
 from src.utils.get_model_and_data import get_model_and_data
 
 from src.parser.checkpoint import parser
+from lion_pytorch import Lion
 
 
 def add_epochs(model, datasets, parameters, optimizer, origepoch):
@@ -44,8 +45,9 @@ def main():
     state_dict = torch.load(checkpointpath, map_location=device)
     model.load_state_dict(state_dict)
     
-    # optimizer
+    # optimizer: AdamW or Lion
     optimizer = torch.optim.AdamW(model.parameters(), lr=parameters["lr"])
+    # optimizer = Lion(model.parameters(), lr=parameters["lr"])
 
     print('Total params: %.2fM' % (sum(p.numel() for p in model.parameters()) / 1000000.0))
     print("Training model..")

@@ -16,17 +16,15 @@ plt.switch_backend('agg')
 def main():
     # parse options
     parameters, folder, checkpointname, epoch = parser()
-    #Enable gpu-support
-    #gpu_device = get_gpu_device()
-    #parameters["device"] = f"cuda:{gpu_device}"
-    #CPU
-    parameters["device"] = "cpu"
+    gpu_device = get_gpu_device()
+    parameters["device"] = f"cuda:{gpu_device}"
     model, datasets = get_model_and_data(parameters, split='vald')
 
     print("Restore weights..")
     checkpointpath = os.path.join(folder, checkpointname)
     state_dict = torch.load(checkpointpath, map_location=parameters["device"])
     load_model_wo_clip(model, state_dict)
+
     assert os.path.isfile(parameters['input_file'])
     with open(parameters['input_file'], 'r') as fr:
         texts = fr.readlines()
@@ -41,6 +39,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
