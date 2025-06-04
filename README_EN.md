@@ -1,3 +1,5 @@
+[**🇷🇺**](https://github.com/vonexel/smog/blob/master/README.md) | [**ᴇɴ**](https://github.com/vonexel/smog/blob/master/README_EN.md) 
+
 <div align="center">
   <table>
     <tr>
@@ -53,7 +55,7 @@ This implementation:
 ```
 smog/
 ├── assets/                      # Auxiliary files for testing and demonstration
-├── data/                        # Data and processing scripts (AMASS Dataset in .pt and .npy formats)
+├── data/                        # Data (AMASS Dataset in .pt and .npy formats)
 ├── exps/                        # 🔥 Models and experiments
 ├── models/                      # SMPL and SMPL+H model files
 ├── prepare/                     # Script for downloading SMPL and SMPL+H
@@ -80,7 +82,6 @@ smog/
 
 ## 🛢️ Dataset
 
------------------
 
 ![amass](https://amass.is.tue.mpg.de/media/upload/header_medium.png)
 
@@ -132,6 +133,7 @@ The spline branch operates on coefficients `spline_weight`, computed via B-splin
 Spline weight initialization includes noise addition (scale_noise) and least-squares solving in `curve2coeff` to approximate initial weights. The `enable_standalone_scale_spline` parameter allows independent scaling of spline coefficients via `spline_scaler` for training stability.
 During the forward pass, inputs are processed by both branches: the base branch generates linear output via activation and matrix multiplication, while the spline branch computes nonlinear offsets via B-spline convolution with trainable weights. Outputs are summed to form the final tensor.
 
+
 ## 🗃️ Examples
 
 |                               Wings                                |                              Swan Lake                               |                                                                     Running                                                                      | Opened the door and walked in                                                                                                          | Lift the weights                                                  |
@@ -175,7 +177,7 @@ conda activate smog
 
   Then, process the three datasets into a unified dataset with `(text, image, motion)` triplets:
 
-To parse acording to the AMASS split (for all applications except action recognition), run:
+To parse aсcording to the AMASS split, run:
 ```bash
 python -m src.datasets.amass_parser --dataset_name amass
 ```
@@ -217,12 +219,12 @@ python evaluate_model.py ./exps/smogx/checkpoint_0100.pth.tar --sample_size -1 -
 
 ## 📦 Model Checkpoints
 
-| File                                 | Link                         |
+| 🏷️ Model                                 | 🔗 Link                         |
 |--------------------------------------|------------------------------|
 | `exps/smog/checkpoint_0100.pth.tar`  | [Best model (lowest loss)](https://huggingface.co/vonexel/smog/blob/main/exps/smogx/checkpoint_0100.pth.tar) |
 
 
-## Key Feature
+## 🔑 Key Feature
 ### KAN Layer with B-spline
 
 ```
