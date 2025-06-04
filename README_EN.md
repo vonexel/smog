@@ -1,9 +1,8 @@
-______________________________________________________________________
 <div align="center">
 
 # smog
 
-______________________________________________________________________
+
 
 
 
@@ -47,6 +46,7 @@ This implementation:
 
 
 ## 📁 Project Structure
+
 ```
 smog/
 ├── assets/                      # Auxiliary files for testing and demonstration
@@ -133,7 +133,7 @@ During the forward pass, inputs are processed by both branches: the base branch 
 
 |                               Wings                                |                              Swan Lake                               |                                                                     Running                                                                      | Opened the door and walked in                                                                                                          | Lift the weights                                                  |
 |:------------------------------------------------------------------:|:--------------------------------------------------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------------:|----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
-| <img src="visuals/gen_0_0.gif#gh-light-mode-only" height="270" />  |  <img src="visuals/gen_0_3.gif#gh-light-mode-only" height="270" />  | <img src="visuals/gen_2_2.gif#gh-light-mode-only" height="270" />  | <img src="visuals/gen_4_2.gif#gh-light-mode-only" height="270" />  | <img src="visuals/gen_5_2.gif#gh-light-mode-only" height="270" /> |
+| <img src="visuals/gen_0_0.gif"/>  |  <img src="visuals/gen_0_3.gif"/>  | <img src="visuals/gen_2_2.gif"/>  | <img src="visuals/gen_4_2.gif"/>  | <img src="visuals/gen_5_2.gif"/> |
 
 
 # Usage
@@ -256,8 +256,8 @@ The best results are highlighted in  <ins>underline</ins>.
 
 | **Methods**     | **R@1**       | **R@5**    | **MMD**              | **FCD**    | 
 |-----------------|---------------|------------|----------------------|------------|
-| **MotionCLIP**  | **0.5240**    | **0.7269** | **0.8247**           | **0.0756** |
-| **SMoG (ours)** | **0.455** | **0.636**  | <ins>**0.736**</ins> | **1.087**  |
+| **MotionCLIP**  | **0.0004158**    | **0.002079** | **0.57388**           | **0.58497** |
+| **SMoG (ours)** | **0.0004158** | **0.006237**  | <ins>**0.020108**</ins> | <ins>**0.50885**</ins>  |
 
 
 ### Loss:
