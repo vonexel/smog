@@ -1,17 +1,20 @@
 <div align="center">
-
-# smog
-
-
-
-
-
-[![hugging face model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Model-blue)](https://huggingface.co/vonexel/smog)
-[![wandb](https://img.shields.io/badge/wandb-Track-FFCC33?style=flat&logo=weightsandbiases&logoColor=white&labelColor=555555&color=FFCC33&labelColor=555555)](https://wandb.ai/vonexel0/smog)
-[![license](https://img.shields.io/badge/License-MIT%20-blue.svg)](https://github.com/vonexel/smog/blob/master/LICENSE)
-
-
+  <table>
+    <tr>
+      <td><img src="visuals/smog_logo.png" width="600"></td>
+      <td><h1>Semantic Motion Generation (SMoG): <br>A PyTorch Implementation</h1></td>
+    </tr>
+  </table>
 </div>
+
+<p align="center">
+<a href="https://huggingface.co/vonexel/smog" alt="Hugging Face">
+    <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Model-blue" /></a>
+      <a href="https://wandb.ai/vonexel0/smog"><img src="https://img.shields.io/badge/wandb-Track-FFCC33?style=flat&logo=weightsandbiases&logoColor=white&labelColor=555555&color=FFCC33&labelColor=555555" alt="Track"></a>
+  <a href="https://github.com/vonexel/smog/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MIT%20-blue.svg" alt="License"></a>
+</p>
+
+
 
 
 <div align="center">
